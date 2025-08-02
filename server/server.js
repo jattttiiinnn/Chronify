@@ -27,11 +27,16 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
     
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
+    if (allowedOrigins.some(allowedOrigin => 
+      origin === allowedOrigin || 
+      origin.startsWith(allowedOrigin.replace('https://', 'http://')) ||
+      origin.startsWith(allowedOrigin.replace('http://', 'https://'))
+    )) {
+      return callback(null, true);
     }
-    return callback(null, true);
+    
+    const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    return callback(new Error(msg), false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -45,10 +50,8 @@ app.options('*', cors(corsOptions)); // Enable pre-flight for all routes
 // Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === 'production' 
-      ? ['https://timebank-e67e2.web.app', 'https://timebank-e67e2.firebaseapp.com']
-      : 'http://localhost:5173',
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
   }
 });

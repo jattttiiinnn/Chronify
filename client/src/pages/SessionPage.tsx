@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Box, 
-  Grid, 
   Paper, 
   Tabs, 
   Tab, 
@@ -16,6 +15,7 @@ import {
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import MainLayout from '../components/Layout/MainLayout';
 import SessionDetail from '../components/Session/SessionDetail';
 import SessionChat from '../components/Session/SessionChat';
 import SessionHistory from '../components/Session/SessionHistory';
@@ -181,90 +181,62 @@ const SessionPage: React.FC = () => {
   const otherUser = isTeacher ? session.student : session.teacher;
 
   return (
-    <Box sx={{ width: '100%', height: '100%' }}>
-      {/* Header */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-        <Box display="flex" alignItems="center" p={2}>
-          <IconButton 
-            onClick={() => navigate(-1)} 
-            size="large"
-            sx={{ mr: 1 }}
-          >
+    <MainLayout requireAuth={true}>
+      <Box sx={{ flexGrow: 1, p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ mr: 1 }}>
             <ArrowBack />
           </IconButton>
-          
-          <Typography variant="h5" component="h1">
-            {session.title || `${isTeacher ? 'Teaching' : 'Learning'} ${session.skill}`}
+          <Typography variant="h6" component="h1">
+            {session?.title || 'Session'}
           </Typography>
-          
-          <Tabs 
-            value={tabValue} 
-            onChange={handleTabChange} 
+        </Box>
+        
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Tabs
+            value={tabValue}
+            onChange={handleTabChange}
+            indicatorColor="primary"
+            textColor="primary"
+            variant={isMobile ? 'scrollable' : 'standard'}
+            scrollButtons="auto"
             aria-label="session tabs"
-            sx={{ ml: 'auto' }}
-            variant={isMobile ? 'fullWidth' : 'standard'}
           >
             <Tab label="Details" {...a11yProps(0)} />
             <Tab label="Chat" {...a11yProps(1)} />
+            <Tab label="History" {...a11yProps(2)} />
           </Tabs>
-        </Box>
-      </Box>
-      
-      {/* Main Content */}
-      <Box sx={{ height: 'calc(100% - 80px)' }}>
-        <TabPanel value={tabValue} index={0}>
-          <SessionDetail 
-            sessionId={session._id} 
-            onSessionUpdated={handleSessionUpdated} 
-          />
-        </TabPanel>
-        
-        <TabPanel value={tabValue} index={1}>
-          <Box sx={{ 
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            bgcolor: 'background.paper',
-            borderRadius: 1,
-            overflow: 'hidden',
-            border: '1px solid',
-            borderColor: 'divider',
-          }}>
-            <Box 
-              sx={{ 
-                p: 2, 
-                borderBottom: '1px solid', 
-                borderColor: 'divider',
-                bgcolor: 'background.paper',
-              }}
-            >
-              <Box display="flex" alignItems="center">
-                <Avatar 
-                  src={otherUser?.profilePicture} 
-                  alt={otherUser?.name}
-                  sx={{ width: 40, height: 40, mr: 2 }}
-                />
-                <Box>
-                  <Typography variant="subtitle1">
-                    {otherUser?.name || 'User'}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {session.skill}
-                  </Typography>
-                </Box>
+
+          <TabPanel value={tabValue} index={0} dir={theme.direction}>
+            {loading ? (
+              <Box display="flex" justifyContent="center" p={3}>
+                <CircularProgress />
               </Box>
-            </Box>
-            
-            <Box flex={1} overflow="auto">
+            ) : session ? (
+              <SessionDetail 
+                sessionId={session._id} 
+                onSessionUpdated={handleSessionUpdated} 
+              />
+            ) : (
+              <Typography>No session data available</Typography>
+            )}
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={1} dir={theme.direction}>
+            {session && (
               <SessionChat 
                 sessionId={session._id} 
                 onNewMessage={handleNewMessage}
               />
-            </Box>
-          </Box>
-        </TabPanel>
+            )}
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={2} dir={theme.direction}>
+            <SessionHistory />
+          </TabPanel>
+        </Paper>
       </Box>
-    </Box>
+    </MainLayout>
   );
 };
 

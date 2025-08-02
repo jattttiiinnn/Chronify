@@ -1,19 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import AuthContext from '../../contexts/AuthContext';
 import { 
   Box, 
   Button, 
   Typography, 
   Paper, 
   CircularProgress, 
-  Grid, 
   Avatar, 
   Divider,
   Chip,
   IconButton,
   Tooltip,
-  Rating
+  Rating,
+  useMediaQuery,
+  useTheme,
+  Grid // Using stable Grid component
 } from '@mui/material';
+import { VideoCallModal } from '../VideoCall/VideoCallModal'; // Named import for VideoCallModal
 import { 
   AccessTime, 
   Person, 
@@ -29,7 +33,7 @@ import {
   Refresh
 } from '@mui/icons-material';
 import { format } from 'date-fns';
-import { useAuth } from '../../contexts/AuthContext';
+// Remove duplicate import
 import { getSession, startSession as startSessionCall } from '../../services/sessionService';
 
 interface StartSessionParams {
@@ -47,7 +51,7 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showVideoCall, setShowVideoCall] = useState(false);
-  const { currentUser } = useAuth();
+  const { currentUser } = useContext(AuthContext) || {};
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -89,13 +93,15 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
     }
   };
 
-  const handleEndCall = () => {
+  const handleEndCall = useCallback(() => {
     setShowVideoCall(false);
     // Refresh session data after call ends
     if (sessionId) {
-      getSession(sessionId).then(setSession);
+      getSession(sessionId).then(updatedSession => {
+        setSession(updatedSession);
+      });
     }
-  };
+  }, [sessionId]);
 
   const getStatusChip = (status: string) => {
     switch (status) {
@@ -157,15 +163,17 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
     );
   }
 
-  const isTeacher = currentUser?.uid === session.teacher._id;
-  const isStudent = currentUser?.uid === session.student._id;
+  const isTeacher = currentUser?.uid === session?.teacher?._id;
+  const isStudent = currentUser?.uid === session?.student?._id;
   const canJoinCall = (isTeacher || isStudent) && 
+                     session?.status && 
                      ['confirmed', 'in-progress'].includes(session.status) &&
                      new Date(session.scheduledTime) <= new Date();
-  const isInProgress = session.status === 'in-progress';
-  const canStartSession = isTeacher && session.status === 'confirmed';
-  const otherUser = isTeacher ? session.student : session.teacher;
-  const isMobile = useMediaQuery((theme: any) => theme.breakpoints.down('sm'));
+  const isInProgress = session?.status === 'in-progress';
+  const canStartSession = isTeacher && session?.status === 'confirmed';
+  const otherUser = isTeacher ? session?.student : session?.teacher;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   return (
     <Box sx={{ maxWidth: 1200, margin: '0 auto', p: 3 }}>
@@ -181,8 +189,8 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
         </Box>
       </Box>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3 }}>
+        <Box sx={{ flex: 2 }}>
           <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h5" gutterBottom>
               {session.title}
@@ -194,31 +202,30 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
             
             <Divider sx={{ my: 2 }} />
             
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+              <Box>
                 <Box display="flex" alignItems="center" mb={2}>
                   <Person color="action" sx={{ mr: 1 }} />
                   <Typography variant="body2" color="textSecondary">
-                    With: {otherUser?.name || 'Unknown User'}
+                    Student:
+                  </Typography>
+                  <Typography variant="body2" sx={{ ml: 1, fontWeight: 'medium' }}>
+                    {session.student.name}
                   </Typography>
                 </Box>
-                
-                <Box display="flex" alignItems="center" mb={2}>
-                  <CalendarToday color="action" sx={{ mr: 1 }} />
-                  <Typography variant="body2" color="textSecondary">
-                    {format(new Date(session.scheduledTime), 'PPP p')}
-                  </Typography>
-                </Box>
-                
+
                 <Box display="flex" alignItems="center" mb={2}>
                   <AccessTime color="action" sx={{ mr: 1 }} />
                   <Typography variant="body2" color="textSecondary">
-                    {session.duration} minutes • {session.timeCredit} credits
+                    Duration:
+                  </Typography>
+                  <Typography variant="body2" sx={{ ml: 1, fontWeight: 'medium' }}>
+                    {session.duration} minutes
                   </Typography>
                 </Box>
-              </Grid>
+              </Box>
               
-              <Grid item xs={12} sm={6}>
+              <Box>
                 <Box display="flex" alignItems="center" mb={2}>
                   <Info color="action" sx={{ mr: 1 }} />
                   <Typography variant="body2" color="textSecondary">
@@ -243,8 +250,8 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
                     </Typography>
                   </Box>
                 )}
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
             
             <Box mt={3} display="flex" gap={2} flexWrap="wrap">
               {canJoinCall && (
@@ -288,54 +295,68 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
           </Paper>
           
           {/* Session Notes & Materials Section */}
-          <Paper elevation={3} sx={{ p: 3 }}>
+          <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
             <Typography variant="h6" gutterBottom>
               Session Notes & Materials
             </Typography>
             
-            {session.notes ? (
-              <Typography variant="body1" color="textSecondary">
-                {session.notes}
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="textSecondary" fontStyle="italic">
-                No notes or materials have been added to this session yet.
-              </Typography>
-            )}
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2, mb: 2 }}>
+              {session.notes && (
+                <Paper sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Session Notes
+                  </Typography>
+                  <Typography variant="body2">
+                    {session.notes}
+                  </Typography>
+                </Paper>
+              )}
+              {session.feedback && (
+                <Paper sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Feedback
+                  </Typography>
+                  <Typography variant="body2">
+                    {session.feedback}
+                  </Typography>
+                </Paper>
+              )}
+            </Box>
             
             {session.attachments?.length > 0 && (
               <Box mt={2}>
                 <Typography variant="subtitle2" gutterBottom>
                   Attachments:
                 </Typography>
-                <Grid container spacing={1}>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   {session.attachments.map((file: any) => (
-                    <Grid item key={file._id}>
-                      <Button 
-                        variant="outlined" 
-                        size="small"
-                        href={file.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        startIcon={<InsertDriveFile />}
-                      >
-                        {file.name}
-                      </Button>
-                    </Grid>
+                    <Button 
+                      key={file._id} 
+                      variant="outlined" 
+                      size="small"
+                      href={file.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      startIcon={<InsertDriveFile />}
+                    >
+                      {file.name}
+                    </Button>
                   ))}
-                </Grid>
+                </Box>
               </Box>
             )}
-          </Paper>
-        </Grid>
-        
-        <Grid item xs={12} md={4}>
-          <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              {isTeacher ? 'Student' : 'Teacher'} Details
-            </Typography>
             
-            <Box display="flex" flexDirection="column" alignItems="center" mb={2}>
+            </Paper>
+            
+            {/* User Profile Section */}
+            <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+              <Box>
+              <Box display="flex" alignItems="center" mb={2}>
+                <Info color="action" sx={{ mr: 1 }} />
+                <Typography variant="body2" color="textSecondary">
+                  Skill: {session.skill}
+                </Typography>
+              </Box>
               <Avatar 
                 src={otherUser?.profilePicture} 
                 alt={otherUser?.name}
@@ -427,11 +448,11 @@ const SessionDetail: React.FC<SessionDetailProps> = ({ sessionId, onSessionUpdat
               </Box>
             </Paper>
           )}
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
       
       {/* Video Call Modal */}
-      {showVideoCall && session.roomId && (
+      {showVideoCall && session?.roomId && (
         <VideoCallModal
           open={showVideoCall}
           onClose={handleEndCall}

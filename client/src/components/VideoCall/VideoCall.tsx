@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import useVideoCall from '../../hooks/useVideoCall';
-import { Box, Button, Grid, Typography, CircularProgress, IconButton } from '@mui/material';
+import { Box, Button, Typography, CircularProgress, IconButton, Paper, Grid } from '@mui/material';
 import { CallEnd, Mic, MicOff, Videocam, VideocamOff } from '@mui/icons-material';
 
 export interface UserVideo {
@@ -24,8 +24,7 @@ const ICE_SERVERS = {
   ],
 };
 
-const VideoCall: React.FC<VideoCallProps> = ({ onEndCall }) => {
-  const { roomId } = useParams<{ roomId: string }>();
+const VideoCall: React.FC<VideoCallProps> = ({ roomId, userId, onEndCall }) => {
   const { currentUser } = useAuth();
   const {
     localStream,
@@ -36,7 +35,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ onEndCall }) => {
     userVideoRef,
     joinCall,
     leaveCall,
-  } = useVideoCall(roomId || '', currentUser?.uid || '');
+  } = useVideoCall(roomId, userId);
   
   const [isMuted, setIsMuted] = React.useState(false);
   const [isVideoOff, setIsVideoOff] = React.useState(false);
@@ -119,9 +118,9 @@ const VideoCall: React.FC<VideoCallProps> = ({ onEndCall }) => {
       {/* Main video area */}
       <Box sx={{ flex: 1, position: 'relative', backgroundColor: '#1a1a1a', borderRadius: 2, overflow: 'hidden' }}>
         {/* Remote videos */}
-        <Grid container spacing={2} sx={{ height: '100%', p: 2 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: remoteStreams.length > 1 ? '1fr 1fr' : '1fr' }, gap: 2, p: 2, height: '100%' }}>
           {remoteStreams.map(({ userId }) => (
-            <Grid item xs={12} md={remoteStreams.length > 1 ? 6 : 12} key={userId}>
+            <Box key={userId} sx={{ position: 'relative', height: '100%', minHeight: '200px' }}>
               <Paper sx={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
                 <video
                   ref={el => remoteVideosRef.current[userId] = el}
@@ -143,14 +142,14 @@ const VideoCall: React.FC<VideoCallProps> = ({ onEndCall }) => {
                   User {userId.substring(0, 6)}
                 </Box>
               </Paper>
-            </Grid>
+            </Box>
           ))}
           
           {/* Local video */}
           {isCallActive && (
             <Box
               sx={{
-                position: 'absolute',
+                position: 'fixed',
                 bottom: 16,
                 right: 16,
                 width: '25%',
@@ -171,7 +170,7 @@ const VideoCall: React.FC<VideoCallProps> = ({ onEndCall }) => {
               />
             </Box>
           )}
-        </Grid>
+        </Box>
       </Box>
       
       {/* Call controls */}

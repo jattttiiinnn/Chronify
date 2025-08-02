@@ -20,10 +20,46 @@ const useVideoCall = (roomId: string, userId: string) => {
 
   // Initialize socket connection
   useEffect(() => {
-    const socket = io(process.env.REACT_APP_API_URL || 'http://localhost:5000');
+    // Get the base URL from environment variables
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    
+    // Create socket URL - remove '/api' if present and ensure proper WebSocket protocol
+    const socketUrl = new URL(apiUrl);
+    socketUrl.pathname = socketUrl.pathname.replace(/\/api$/, '');
+    
+    // Ensure WebSocket protocol is used
+    const protocol = socketUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${socketUrl.host}${socketUrl.pathname}`;
+    
+    console.log('Connecting to WebSocket:', wsUrl);
+    
+    const socket = io(wsUrl, {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+    });
+    
     socketRef.current = socket;
 
+    // Log connection events for debugging
+    socket.on('connect', () => {
+      console.log('Socket connected:', socket.id);
+    });
+    
+    socket.on('disconnect', (reason) => {
+      console.log('Socket disconnected:', reason);
+    });
+    
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+    });
+
     return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('connect_error');
       socket.disconnect();
     };
   }, []);
