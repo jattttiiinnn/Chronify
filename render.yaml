@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: timebank-backend
+    env: node
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: timebank-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FIREBASE_ADMIN_SDK_JSON
+        fromFile: ./firebase-admin-sdk.json
+    plan: free
